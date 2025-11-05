@@ -18,7 +18,6 @@ from .storage import session_scope
 from .threatintel_enricher import enrich_with_threatintel
 
 
-
 @dataclass(slots=True)
 class ScanResult:
     project: str
@@ -44,6 +43,45 @@ class ScanService:
     ) -> ScanResult:
         components = sbom_loader.load_components(sbom_path)
         service_map = load_context(context_path)
+        # build quick lookup maps for components by purl/bom_ref to enable dependency resolution
+        components = sbom_loader.load_components(sbom_path)
+        purl_map: Dict[str, sbom_loader.ParsedComponent] = {}
+        bomref_map: Dict[str, sbom_loader.ParsedComponent] = {}
+        for comp in components:
+            if comp.purl:
+                purl_map[comp.purl] = comp
+            if comp.bom_ref:
+                bomref_map[comp.bom_ref] = comp
+
+        # helper to compute transitive dependency closure (returns purl list)
+        def _collect_transitive(start_ref: Optional[str]) -> List[str]:
+            seen: set = set()
+            result: List[str] = []
+
+            def _resolve(ref: Optional[str]) -> Optional[sbom_loader.ParsedComponent]:
+                if not ref:
+                    return None
+                if ref in purl_map:
+                    return purl_map.get(ref)
+                if ref in bomref_map:
+                    return bomref_map.get(ref)
+                return None
+
+            stack = [start_ref] if start_ref else []
+            while stack:
+                cur = stack.pop()
+                if not cur or cur in seen:
+                    continue
+                seen.add(cur)
+                comp = _resolve(cur)
+                if not comp:
+                    continue
+                # add direct dependencies
+                for d in comp.dependencies or []:
+                    if isinstance(d, str) and d not in seen:
+                        result.append(d)
+                        stack.append(d)
+            return result
         try:
             trivy_report = trivy_client.scan_sbom(sbom_path, offline=offline)
         except trivy_client.TrivyError as exc:
@@ -53,6 +91,7 @@ class ScanService:
                     trivy_report = json.load(fh)
             else:
                 raise exc
+
         vuln_index = trivy_client.extract_vulnerabilities(trivy_report)
 
         threats_payload: List[dict] = []
@@ -84,6 +123,8 @@ class ScanService:
                     "supplier": parsed.supplier,
                     "hashes": parsed.hashes,
                     "properties": parsed.properties,
+                    "dependencies": parsed.dependencies,
+                    "transitive_dependencies": _collect_transitive(parsed.purl or parsed.bom_ref),
                 }
 
                 raw_vulnerabilities = list(
@@ -126,12 +167,43 @@ class ScanService:
                     session.add(vuln_record)
                     session.flush()
 
-                    for hypothesis in self.rule_engine.evaluate(
-                        component_dict,
-                        enriched_vuln,
-                        service_context,
-                        threatintel=enriched_vuln.get("threatintel", {}),
-                    ):
+                    raw_hypotheses = list(
+                        self.rule_engine.evaluate(
+                            component_dict,
+                            enriched_vuln,
+                            service_context,
+                            threatintel=enriched_vuln.get("threatintel", {}),
+                        )
+                    )
+
+                    if not raw_hypotheses:
+                        continue
+
+                    def _hypothesis_priority(h: Dict[str, Any]) -> int:
+                        meta = h.get("rule_metadata") or {}
+                        pval = meta.get("priority")
+                        if pval is not None:
+                            try:
+                                return int(pval)
+                            except Exception:
+                                pass
+
+                        sev = str(h.get("rule_severity") or "").lower()
+                        base = {"critical": 1, "high": 2, "medium": 3, "low": 4}
+                        priority = base.get(sev, 5)
+
+                        tags = meta.get("tags") or []
+                        if isinstance(tags, (list, tuple)):
+                            tags_l = [str(t).lower() for t in tags]
+                            if "fallback" in tags_l or "broad" in tags_l or "catch-all" in tags_l:
+                                priority += 10
+                        return priority
+
+                    priorities = [_hypothesis_priority(h) for h in raw_hypotheses]
+                    best = min(priorities) if priorities else 0
+                    filtered_hypotheses = [h for i, h in enumerate(raw_hypotheses) if priorities[i] == best]
+
+                    for hypothesis in filtered_hypotheses:
                         rule_severity = hypothesis.get("rule_severity", "medium")
                         severity_multiplier = {"low": 0.8, "medium": 1.0, "high": 1.2}.get(rule_severity, 1.0)
 
@@ -165,6 +237,20 @@ class ScanService:
                         threat_export["threat_id"] = threat_record.id
                         threats_payload.append(threat_export)
 
+            severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+            def _severity_rank(entry: dict) -> int:
+                sev = None
+                if isinstance(entry, dict):
+                    evidence = entry.get("evidence") or {}
+                    sev = evidence.get("severity") or entry.get("rule_severity") or entry.get("severity")
+                if isinstance(sev, str):
+                    return severity_order.get(sev.lower(), 4)
+                return 4
+
+            threats_payload.sort(
+                key=lambda t: (-float(t.get("score", 0)), _severity_rank(t))
+            )
             json_path = self.settings.report_dir / f"{project}_report.json"
             write_json_report(threats_payload, json_path)
             html_path = write_html_report(threats_payload, project)

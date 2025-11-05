@@ -165,25 +165,5 @@
       "supply-chain"
     ],
     "last_updated": "2025-10-31"
-  },
-  {
-    "id": "R999",
-    "title": "Catch-all: Any vulnerability-like entry",
-    "description": "Fallback rule that matches any item that looks like a vulnerability or has vulnerability fields.",
-    "scope": [
-      "vulnerability",
-      "component"
-    ],
-    "severity": "variable",
-    "condition": {
-      "match_type": "exists",
-      "field": "vulnerability"
-    },
-    "remediation": "Review vulnerability details and triage manually.",
-    "enabled": true,
-    "tags": [
-      "fallback"
-    ],
-    "last_updated": "2025-10-31"
   }
 ]
