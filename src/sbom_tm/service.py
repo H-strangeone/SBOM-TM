@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -23,10 +23,12 @@ class ScanResult:
     project: str
     component_count: int
     vulnerability_count: int
+    
     threat_count: int
     json_report: Path
     html_report: Path
-
+    threats: list = field(default_factory=list)
+    vulnerabilities: list = field(default_factory=list)
 
 class ScanService:
     def __init__(self) -> None:
@@ -259,7 +261,9 @@ class ScanService:
             project=project,
             component_count=len(components),
             vulnerability_count=vulnerability_count,
+            vulnerabilities=vulnerabilities_payload,
             threat_count=len(threats_payload),
+            threats=threats_payload,
             json_report=json_path,
             html_report=html_path,
         )

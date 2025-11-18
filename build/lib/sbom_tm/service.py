@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -23,11 +23,12 @@ class ScanResult:
     project: str
     component_count: int
     vulnerability_count: int
+    
     threat_count: int
     json_report: Path
     html_report: Path
-
-
+    threats: list = field(default_factory=list)
+    vulnerabilities: list = field(default_factory=list)
 class ScanService:
     def __init__(self) -> None:
         settings = get_settings()
@@ -96,7 +97,8 @@ class ScanService:
 
         threats_payload: List[dict] = []
         vulnerability_count = 0
-
+        vulnerabilities_payload: List[dict] = []
+    
         with session_scope() as session:
             scan = ProjectScan(project=project, sbom_path=str(sbom_path))
             session.add(scan)
@@ -154,6 +156,7 @@ class ScanService:
 
                 for enriched_vuln in enriched_vulnerabilities:
                     vulnerability_count += 1
+                    vulnerabilities_payload.append(enriched_vuln)
 
                     vuln_record = Vulnerability(
                         component_id=component_record.id,
@@ -259,7 +262,9 @@ class ScanService:
             project=project,
             component_count=len(components),
             vulnerability_count=vulnerability_count,
+            vulnerabilities=vulnerabilities_payload,
             threat_count=len(threats_payload),
+            threats=threats_payload,
             json_report=json_path,
             html_report=html_path,
         )

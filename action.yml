@@ -1,0 +1,36 @@
+name: "SBOM-TM CI Security Gate"
+description: "Commit-aware SBOM + Trivy + RuleEngine diff/scan for GitHub PRs and pushes"
+author: "Hitesh / sbom-tm"
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  mode:
+    description: "auto | scan | diff (auto = diff on PRs, scan on pushes)"
+    required: false
+    default: "auto"
+  base:
+    description: "Base ref for diff (e.g. origin/main). If empty, sbom-tm chooses merge-base."
+    required: false
+    default: ""
+  project:
+    description: "Logical project name (used in reports)"
+    required: false
+    default: "default"
+  offline:
+    description: "Use Trivy offline mode (true/false)"
+    required: false
+    default: "false"
+  report-path:
+    description: "Relative path (within repo) for the Markdown report"
+    required: false
+    default: "sbom-tm-report.md"
+
+outputs:
+  report_path:
+    description: "Relative path of the generated Markdown report (for PR comments)"
+
+runs:
+  using: "docker"
+  image: "Dockerfile"

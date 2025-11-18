@@ -44,3 +44,5 @@ ignore = []
 package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
+[tool.setuptools.package-data]
+sbom_tm = ["templates/*.j2", "templates/**/*.j2"]
