@@ -1,0 +1,42 @@
+# SBOM-TM CI Policy Configuration
+
+# -------------------------------------------
+# Fail pipeline on these vulnerability severities
+# -------------------------------------------
+fail_on_severities:
+  - CRITICAL
+  - HIGH
+
+# -------------------------------------------
+# Fail pipeline when Rule Engine flags these categories
+# -------------------------------------------
+fail_on_rule_categories:
+  - DEPRECATED
+  - WEAK_CRYPTO
+  - MISCONFIG
+  - INSECURE_VERSION
+
+# -------------------------------------------
+# Minimum threat score (0–100)
+# -------------------------------------------
+min_threat_score: 60
+
+# -------------------------------------------
+# Ignore specific CVEs permanently (allowlisting)
+# -------------------------------------------
+ignore_cves:
+  - "CVE-2023-9999"
+  - "CVE-2020-12345"
+
+# -------------------------------------------
+# Ignore specific packages
+# -------------------------------------------
+ignore_packages:
+  - "example-logger"
+  - "left-pad"
+
+# -------------------------------------------
+# Allow transitive vulnerabilities?
+# If false, ANY transitive vuln still fails.
+# -------------------------------------------
+allow_transitive: false

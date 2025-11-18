@@ -1,13 +1,29 @@
 FROM python:3.11-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    curl wget git \
+    && rm -rf /var/lib/apt/lists/*
 
+# ----------------------------
+# Install Syft (latest)
+# ----------------------------
+RUN curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+    | sh -s -- -b /usr/local/bin
+
+# ----------------------------
+# Install Trivy (latest)
+# ----------------------------
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+    | sh -s -- -b /usr/local/bin
+
+# ----------------------------
+# Copy project & install
+# ----------------------------
 WORKDIR /app
+COPY . /app
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir .
 
-COPY . .
-
-CMD ["python", "src/main.py"]
+ENTRYPOINT ["sbom-tm"]
+CMD ["--help"]
