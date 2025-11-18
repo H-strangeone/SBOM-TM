@@ -98,7 +98,7 @@ class ScanService:
 
         threats_payload: List[dict] = []
         vulnerability_count = 0
-
+        vulnerabilities_payload: List[dict] = []
         with session_scope() as session:
             scan = ProjectScan(project=project, sbom_path=str(sbom_path))
             session.add(scan)
@@ -156,7 +156,8 @@ class ScanService:
 
                 for enriched_vuln in enriched_vulnerabilities:
                     vulnerability_count += 1
-
+                    vulnerabilities_payload.append({ enriched_vuln,
+                    })
                     vuln_record = Vulnerability(
                         component_id=component_record.id,
                         cve=_extract(enriched_vuln, ["VulnerabilityID", "cve"]),

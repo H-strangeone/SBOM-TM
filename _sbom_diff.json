@@ -1,0 +1,18 @@
+{
+  "added_components": [
+    "pkg:github/actions/checkout@v4",
+    "pkg:github/actions/setup-python@v5",
+    "pkg:github/actions/upload-artifact@v4",
+    "pkg:github/anchore/sbom-action@v0.16.0#download-syft",
+    "pkg:github/aquasecurity/setup-trivy@v0.4.0",
+    "/tmp/tmp7netkw9x/.github/workflows/publish.yml",
+    "/tmp/tmp7netkw9x/.github/workflows/sbom-security.yml",
+    "/tmp/tmp7netkw9x/requirements.txt"
+  ],
+  "removed_components": [
+    "/tmp/tmp02mlah4o/requirements.txt"
+  ],
+  "version_changes": [],
+  "new_vulnerabilities": [],
+  "rule_engine_threats": []
+}

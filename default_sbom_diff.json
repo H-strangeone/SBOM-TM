@@ -1,0 +1,13 @@
+{
+  "added_components": [
+    "pkg:github/actions/checkout@v4",
+    "pkg:github/actions/setup-python@v5",
+    "pkg:github/actions/upload-artifact@v4",
+    "pkg:github/anchore/sbom-action@v0.16.0#download-syft",
+    "pkg:github/aquasecurity/setup-trivy@v0.4.0"
+  ],
+  "removed_components": [],
+  "version_changes": [],
+  "new_vulnerabilities": [],
+  "rule_engine_threats": []
+}

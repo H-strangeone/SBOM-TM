@@ -171,7 +171,111 @@ def diff(
         threats = []
         if engine:
             typer.echo("[sbom-tm] evaluating rules against updated SBOM...")
-            threats = engine.evaluate(new_component_objs, ctx)
+            # Build service context mapping and evaluate per-component vulnerabilities
+            from .context_loader import load_context
+            from .threatintel_enricher import enrich_with_threatintel
+            from .trivy_client import vulnerabilities_for_component
+            from .scorer import compute_score
+
+            service_map = load_context(Path(ctx) if ctx else None)
+
+            # reuse ScanService helper methods for payload building and context resolution
+            scan_service = ScanService()
+
+            # Iterate components and their vulnerabilities
+            for parsed in new_component_objs:
+                component_dict = {
+                    "name": parsed.name,
+                    "version": parsed.version,
+                    "purl": parsed.purl,
+                    "supplier": parsed.supplier,
+                    "hashes": parsed.hashes,
+                    "properties": parsed.properties,
+                    "dependencies": parsed.dependencies,
+                }
+
+                service_context = scan_service._resolve_context(parsed, service_map)
+
+                raw_vulnerabilities = list(
+                    vulnerabilities_for_component(parsed.purl, parsed.name, new_index)
+                )
+                if not raw_vulnerabilities:
+                    continue
+
+                enriched_payload = enrich_with_threatintel(
+                    [
+                        {
+                            "component": component_dict,
+                            "vulnerabilities": raw_vulnerabilities,
+                        }
+                    ]
+                )
+                enriched_vulnerabilities = (
+                    enriched_payload[0].get("vulnerabilities", raw_vulnerabilities)
+                    if enriched_payload
+                    else raw_vulnerabilities
+                )
+
+                for enriched_vuln in enriched_vulnerabilities:
+                    raw_hypotheses = list(
+                        engine.evaluate(
+                            component_dict,
+                            enriched_vuln,
+                            service_context,
+                            threatintel=enriched_vuln.get("threatintel", {}),
+                        )
+                    )
+                    if not raw_hypotheses:
+                        continue
+
+                    # choose best hypothesis (lowest priority)
+                    def _hypothesis_priority(h: Dict[str, Any]) -> int:
+                        meta = h.get("rule_metadata") or {}
+                        pval = meta.get("priority")
+                        if pval is not None:
+                            try:
+                                return int(pval)
+                            except Exception:
+                                pass
+
+                        sev = str(h.get("rule_severity") or "").lower()
+                        base = {"critical": 1, "high": 2, "medium": 3, "low": 4}
+                        priority = base.get(sev, 5)
+
+                        tags = meta.get("tags") or []
+                        if isinstance(tags, (list, tuple)):
+                            tags_l = [str(t).lower() for t in tags]
+                            if "fallback" in tags_l or "broad" in tags_l or "catch-all" in tags_l:
+                                priority += 10
+                        return priority
+
+                    priorities = [_hypothesis_priority(h) for h in raw_hypotheses]
+                    best = min(priorities) if priorities else 0
+                    filtered_hypotheses = [h for i, h in enumerate(raw_hypotheses) if priorities[i] == best]
+
+                    for hypothesis in filtered_hypotheses:
+                        rule_severity = hypothesis.get("rule_severity", "medium")
+                        severity_multiplier = {"low": 0.8, "medium": 1.0, "high": 1.2}.get(rule_severity, 1.0)
+
+                        score = compute_score(
+                            vulnerability=enriched_vuln,
+                            context=scan_service._context_dict(service_context),
+                            factors=hypothesis.get("score_factors", {}),
+                            pattern_multiplier=hypothesis.get("pattern_multiplier", 1.0) * severity_multiplier,
+                        )
+
+                        hypothesis_payload = scan_service._build_hypothesis_payload(
+                            component_dict,
+                            enriched_vuln,
+                            service_context,
+                            hypothesis,
+                            score,
+                        )
+
+                        exported = dict(hypothesis_payload)
+                        exported["score"] = score
+                        exported["rule_id"] = hypothesis.get("rule_id")
+                        threats.append(exported)
 
         # Attach threats to diff output
         diff_payload["rule_engine_threats"] = threats
