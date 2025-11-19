@@ -1,0 +1,65 @@
+name: SBOM Security Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  scan:
+    name: Full SBOM + Trivy + RuleEngine Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install SBOM-TM
+        run: |
+          pip install -r requirements.txt
+          pip install .
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0.16.0
+
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          syft . -o cyclonedx-json > sbom.json
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.4
+
+      - name: Run SBOM-TM Scan
+        id: runscan
+        run: |
+          sbom-tm scan \
+            --sbom sbom.json \
+            --project "${{ github.event.repository.name }}" \
+            --offline
+        continue-on-error: true
+
+      - name: Show Logs
+        if: always()
+        run: cat ~/.cache/sbom-tm/logs/sbom-tm.log || true
+
+      - name: Upload Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-scan-reports
+          path: |
+            ~/.cache/sbom-tm/reports/*.html
+            ~/.cache/sbom-tm/reports/*.json
+          if-no-files-found: warn
+
+      - name: Approve if safe
+        if: steps.runscan.outcome == 'success'
+        run: echo "✔ Scan passed — no CI policy violations."
+
+      - name: Mark warning (no hard block)
+        if: steps.runscan.outcome == 'failure'
+        run: echo "⚠ Issues found — check the uploaded reports."
