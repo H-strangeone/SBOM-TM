@@ -1,4 +1,5 @@
 name: Publish SBOM-TM Docker Image
+
 on:
   push:
     tags:
@@ -37,5 +38,6 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ github.repository_owner }}/sbom-tm:latest
-            ghcr.io/${{ github.repository_owner }}/sbom-tm:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner | toLower }}/sbom-tm:latest
+            ghcr.io/${{ github.repository_owner | toLower }}/sbom-tm:${{ github.ref_name }}
+
