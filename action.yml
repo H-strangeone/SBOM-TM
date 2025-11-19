@@ -1,50 +1,120 @@
-name: "SBOM-TM CI Security Gate"
-description: "Commit-aware SBOM + Trivy + RuleEngine diff/scan inside GitHub Actions"
-author: "Hitesh / sbom-tm"
+name: "SBOM-TM Action"
+description: "Run SBOM-TM CLI (scan/diff) inside GitHub workflows."
+author: "SBOM-TM"
+branding:
+  icon: "shield"
+  color: "purple"
 
+inputs:
+  command:
+    description: 'SBOM-TM subcommand to run (scan|diff)'
+    required: true
+    default: 'scan'
+  args:
+    description: 'Additional args to pass to the CLI'
+    required: false
+    default: ''
+  project:
+    description: 'Project name to use for reports'
+    required: false
+    default: 'default'
+  offline:
+    description: 'Run trivy in offline mode (true/false)'
+    required: false
+    default: 'false'
+  report-path:
+    description: 'Relative path to write the markdown report inside the workspace'
+    required: false
+    default: 'data/cache/reports'
+
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  args:
+    - ${{ inputs.command }}
+    - ${{ inputs.args }}
+    - ${{ inputs.project }}
+    - ${{ inputs.offline }}
+    - ${{ inputs.report-path }}
+name: "SBOM-TM Action"
+description: "Run SBOM-TM CLI (scan/diff) inside a GitHub workflow and post reports." 
+inputs:
+  command:
+    description: 'SBOM-TM subcommand to run (scan|diff)'
+    required: true
+    default: 'scan'
+  args:
+    description: 'Additional args to pass to the CLI'
+    required: false
+    default: ''
+  project:
+    description: 'Project name to use for reports'
+    required: false
+    default: 'default'
+  python-version:
+    description: 'Python version for the runner'
+    required: false
+    default: '3.11'
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install package
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install .
+
+    - name: Make entrypoint executable
+      run: |
+        if [ -f ./entrypoint.sh ]; then chmod +x ./entrypoint.sh; fi
+
+    - name: Run SBOM-TM
+      shell: bash
+      env:
+        PROJECT: ${{ inputs.project }}
+      run: |
+        ./entrypoint.sh "${{ inputs.command }}" "${{ inputs.args }}" "${{ inputs.project }}"
+name: "SBOM-TM CI Security Gate"
+description: "Commit-aware SBOM + Trivy + RuleEngine diff/scan for GitHub PRs and pushes"
+author: "Hitesh / sbom-tm"
 branding:
   icon: "shield"
   color: "purple"
 
 inputs:
   mode:
-    description: "auto | scan | diff"
+    description: "auto | scan | diff (auto = diff on PRs, scan on pushes)"
     required: false
     default: "auto"
-
   base:
-    description: "Base ref for diff"
+    description: "Base ref for diff (e.g. origin/main). If empty, sbom-tm chooses merge-base."
     required: false
     default: ""
-
   project:
-    description: "Project name (used in reports)"
+    description: "Logical project name (used in reports)"
     required: false
     default: "default"
-
   offline:
     description: "Use Trivy offline mode (true/false)"
     required: false
     default: "false"
-
   report-path:
-    description: "Markdown report output path"
+    description: "Relative path (within repo) for the Markdown report"
     required: false
     default: "sbom-tm-report.md"
 
 outputs:
   report_path:
-    description: "Location of markdown diff report"
+    description: "Relative path of the generated Markdown report (for PR comments)"
 
 runs:
   using: "docker"
-  image: "ghcr.io/h-strangeone/sbom-tm:latest"
-
-  args:
-    - ${{ inputs.mode }}
-    - ${{ inputs.base }}
-    - ${{ inputs.project }}
-    - ${{ inputs.offline }}
-    - ${{ inputs['report-path'] }}
-
-
+  image: "Dockerfile"
