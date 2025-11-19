@@ -53,7 +53,7 @@ jobs:
       # INSTALL TRIVY
       # -------------------------------
       - name: Install Trivy
-        uses: aquasecurity/setup-trivy@v0.4.0
+        uses: aquasecurity/setup-trivy@v0.3.1
 
       # -------------------------------
       # RUN SBOM-TM SCAN (Trivy + Rules)
@@ -90,3 +90,4 @@ jobs:
       - name: Success message
         if: steps.sbomtm.outcome == 'success'
         run: echo "✔ No threats found. Safe to merge!"
+
