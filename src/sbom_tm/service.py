@@ -156,8 +156,7 @@ class ScanService:
 
                 for enriched_vuln in enriched_vulnerabilities:
                     vulnerability_count += 1
-                    vulnerabilities_payload.append({ enriched_vuln,
-                    })
+                    vulnerabilities_payload.append(enriched_vuln)
                     vuln_record = Vulnerability(
                         component_id=component_record.id,
                         cve=_extract(enriched_vuln, ["VulnerabilityID", "cve"]),
