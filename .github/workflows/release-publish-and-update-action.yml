@@ -51,11 +51,19 @@ jobs:
         env:
           NEW_IMAGE: ghcr.io/${{ env.OWNER_LC }}/sbom-tm:${{ github.ref_name }}
         run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+      
           git switch -C release/${{ github.ref_name }}
+      
           yq -i ".runs.image = env(NEW_IMAGE)" action.yml
+      
           git add action.yml
           git commit -m "chore: update action to $NEW_IMAGE" || echo "No changes"
-          git push -f
+      
+          # THE FIX → set upstream on first push
+          git push --set-upstream origin release/${{ github.ref_name }}
+
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
@@ -66,3 +74,4 @@ jobs:
           body: "Automated update for new GHCR release."
           base: main
           head: release/${{ github.ref_name }}
+
