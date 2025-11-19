@@ -510,7 +510,7 @@ def scan(
     # ============================================================
     export_dir = Path("sbom-report")
     export_dir.mkdir(exist_ok=True)
-    
+
     from .report_builder_scan import write_markdown_scan
     scan_md = export_dir / f"{project}_scan_report.md"
     write_markdown_scan(result, scan_md)
@@ -523,7 +523,6 @@ def scan(
     shutil.copy(result.html_report, scan_html)
 
     # MARKDOWN SUMMARY
-    from pathlib import Path
 
     md_file = export_dir / f"{project}_scan_report.md"
     lines = []
