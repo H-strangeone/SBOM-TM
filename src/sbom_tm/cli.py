@@ -523,11 +523,20 @@ def scan(
 
     # 2️⃣ Fail on Vulnerabilities (Trivy)
     # sev = getattr(result, "severity_counts", {})
+    def _extract_cve(v):
+        return (
+            v.get("cve")
+            or v.get("CVE")
+            or v.get("VulnerabilityID")
+        )
+
     filtered_vulns = [
-        v for v in result.vulnerabilities
-        if v["cve"] not in ignored_cves
-        and v["package"] not in ignored_pkgs
+        v
+        for v in result.vulnerabilities
+        if _extract_cve(v) not in ignored_cves
+        and v.get("PkgName") not in ignored_pkgs
     ]
+
 
     # Recompute severity counts after filtering
     sev = {}
