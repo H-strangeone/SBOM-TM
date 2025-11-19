@@ -196,9 +196,16 @@ def diff(
 
                 service_context = scan_service._resolve_context(parsed, service_map)
 
-                raw_vulnerabilities = list(
-                    vulnerabilities_for_component(parsed.purl, parsed.name, new_index)
-                )
+                def freeze(obj):
+                    if isinstance(obj, dict):
+                        return tuple(sorted((k, freeze(v)) for k, v in obj.items()))
+                    if isinstance(obj, list):
+                        return tuple(freeze(x) for x in obj)
+                    return obj
+
+                raw_vulnerabilities = [
+                    freeze(v) for v in vulnerabilities_for_component(parsed.purl, parsed.name, new_index)
+                ]
                 if not raw_vulnerabilities:
                     continue
 
