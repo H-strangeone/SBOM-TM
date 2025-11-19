@@ -40,11 +40,15 @@ jobs:
       - name: Run SBOM Scan
         id: sbomtm
         run: |
+          mkdir -p ~/.cache/sbom-tm/reports
+
           sbom-tm scan \
             --sbom sbom.json \
             --project "${{ github.event.repository.name }}" \
-            --format html,json,md
+            --format html,json,md \
+            --output ~/.cache/sbom-tm/reports
         continue-on-error: true
+
 
       - name: Debug logs
         if: always()
@@ -69,6 +73,7 @@ jobs:
       - name: Success message
         if: steps.sbomtm.outcome == 'success'
         run: echo "✔ No threats found. Safe to merge!"
+
 
 
 
