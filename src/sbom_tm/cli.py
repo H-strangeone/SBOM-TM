@@ -532,21 +532,40 @@ def scan(
     lines.append(f"- **Threats:** {result.threat_count}\n")
 
     lines.append("## Vulnerabilities\n")
+
+    def get_field(v, *keys):
+        """Try multiple possible Trivy/SBOM schema keys."""
+        for k in keys:
+            if k in v:
+                return v[k]
+        return None
+
     for v in result.vulnerabilities:
-        cve = (
-            v.get("VulnerabilityID")
-            or v.get("cve")
-            or v.get("CVE")
-            or "unknown"
+        # CVE extraction
+        cve = get_field(
+            v,
+            "VulnerabilityID", "vulnerability_id",
+            "CVE", "cve"
+        ) or "unknown"
+
+        # Package extraction (SBOM uses nested structure)
+        pkg = get_field(
+            v,
+            "PkgName", "PkgID", "package"
         )
-        pkg = v.get("PkgName") or v.get("package") or "unknown"
-        sev = (
-            v.get("Severity")
-            or v.get("severity")
-            or v.get("SeveritySource")
-            or "unknown"
-        )
+        if isinstance(pkg, dict):  # SBOM format → { "name": "libcurl" }
+            pkg = pkg.get("name") or pkg.get("id") or "unknown"
+
+        pkg = pkg or "unknown"
+
+        # Severity extraction
+        sev = get_field(
+            v,
+            "Severity", "severity", "SeveritySource"
+        ) or "unknown"
+
         lines.append(f"- **{cve}** — *{pkg}* — **{sev}**")
+
 
     lines.append("\n## Threats\n")
     for t in result.threats:
