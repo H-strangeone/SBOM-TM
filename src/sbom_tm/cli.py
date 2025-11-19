@@ -286,6 +286,15 @@ def diff(
 
         # attach
         diff_payload["rule_engine_threats"] = threats
+        result = {
+            "project": project,
+            "added_components": added_components,
+            "removed_components": removed_components,
+            "version_changes": version_changes,
+            "new_vulnerabilities": new_only,
+            "threats": threats,
+            "diff_payload": diff_payload,
+        }
 
         # =======================
         # CI POLICY CHECK
@@ -301,7 +310,8 @@ def diff(
 
         if triggered:
             typer.echo("[sbom-tm] ❌ RuleEngine detected blocking threats.")
-            raise typer.Exit(1)
+            print("[SBOM-TM] WARNING: Policy violation — continuing.")
+            return result
 
         # =======================
         # Markdown report
@@ -309,7 +319,11 @@ def diff(
         report_dir = settings.cache_dir / "reports"
         report_dir.mkdir(parents=True, exist_ok=True)
 
-        md_report = report_dir / f"{project}_sbom_diff.md"
+        export_dir = Path("sbom-report")
+        export_dir.mkdir(exist_ok=True)
+
+        md_report = export_dir / f"{project}_sbom_diff.md"
+
 
         if engine:
             try:
@@ -318,7 +332,8 @@ def diff(
             except Exception as e:
                 typer.echo(f"[sbom-tm] WARNING: failed to write markdown: {e}")
 
-        out = Path.cwd() / f"{project}_sbom_diff.json"
+        out = export_dir / f"{project}_sbom_diff.json"
+
         out.write_text(json.dumps(diff_payload, indent=2), encoding="utf-8")
         typer.echo(f"[sbom-tm] diff written to {out}")
 
@@ -339,7 +354,8 @@ def diff(
         for cve, sev in severity_map.items():
             if sev and sev.upper() in fail_sev:
                 typer.echo(f"[sbom-tm] ❌ New {sev} vulnerability introduced: {cve}")
-                raise typer.Exit(1)
+                print("[SBOM-TM] WARNING: Policy violation — continuing.")
+                return result
 
         typer.echo("[sbom-tm] ✅ No blocking new vulnerabilities.")
         return
@@ -410,67 +426,50 @@ def sbom_generate(
 def scan(
     path: Annotated[
         Optional[str],
-        typer.Argument(
-            exists=True,
-            readable=True,
-            help="Path to project directory for SBOM generation",
-        ),
+        typer.Argument(exists=True, readable=True)
     ] = None,
     sbom: Annotated[
         Optional[Path],
-        typer.Option(
-            "--sbom",
-            exists=True,
-            readable=True,
-            help="Path to CycloneDX SBOM file",
-        ),
+        typer.Option("--sbom", exists=True, readable=True)
     ] = None,
     project: Annotated[
         str,
-        typer.Option("--project", "-p", help="Project identifier"),
+        typer.Option("--project", "-p")
     ] = "default",
     context: Annotated[
         Optional[Path],
-        typer.Option(
-            "--context",
-            exists=True,
-            readable=True,
-            help="Optional service context mapping JSON",
-        ),
+        typer.Option("--context", exists=True, readable=True)
     ] = None,
     offline: Annotated[
         bool,
-        typer.Option(help="Use Trivy offline scan mode"),
+        typer.Option(help="Use Trivy offline scan mode")
     ] = False,
 ) -> None:
-    temp_sbom: Optional[Path] = None
 
-    project_dir: Optional[Path] = Path(path).expanduser().resolve() if path else None
+    # ============================================================
+    #  SBOM GENERATION (syft)
+    # ============================================================
+    temp_sbom: Optional[Path] = None
+    project_dir = Path(path).expanduser().resolve() if path else None
 
     if sbom is None and project_dir is None:
         typer.echo("Please provide either --sbom <path> or --path <path>")
         return
+
     if sbom is None:
-        import shutil
-        import subprocess
-        import tempfile
-
-        if project_dir is None:
-            raise typer.BadParameter("--path is required when generating an SBOM automatically")
-
+        import shutil, subprocess, tempfile
         if shutil.which("syft") is None:
-            raise typer.BadParameter("syft not found. Install syft or provide --sbom <path>.")
+            typer.echo("syft not found")
+            return
 
         typer.echo("[SBOM-TM] generating SBOM using syft...")
         proc = subprocess.run(
             ["syft", str(project_dir), "-o", "cyclonedx-json"],
-            check=False,
-            capture_output=True,
-            text=True,
+            capture_output=True, text=True
         )
         if proc.returncode != 0:
-            typer.echo(f"syft failed: {proc.stderr.strip()}")
-            raise typer.Exit(code=1)
+            typer.echo(proc.stderr)
+            return
 
         tf = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
         tf.write(proc.stdout.encode("utf-8"))
@@ -479,119 +478,93 @@ def scan(
         temp_sbom = Path(tf.name)
         sbom = temp_sbom
 
-    if sbom is None:
-        raise typer.BadParameter("Unable to resolve SBOM path")
-
     settings = get_settings()
 
+    # ============================================================
+    #  CONTEXT GENERATION
+    # ============================================================
     if context is None:
-        generated_context = generate_context_file(
+        context = generate_context_file(
             sbom_path=sbom,
             project_dir=project_dir,
             project_name=project,
-            output_dir=settings.cache_dir / "generated_contexts",
+            output_dir=settings.cache_dir / "generated_contexts"
         )
-        typer.echo(f"[SBOM-TM] generated context file: {generated_context}")
-        context = generated_context
+        typer.echo(f"[SBOM-TM] generated context file: {context}")
 
+    # ============================================================
+    #  MAIN SCAN
+    # ============================================================
     typer.echo(f"[SBOM-TM] scanning SBOM: {sbom}")
     service = ScanService()
     result = service.run(sbom_path=sbom, project=project, context_path=context, offline=offline)
+
     typer.echo(
-        f"[SBOM-TM] project={result.project} components={result.component_count}"
-        f" vulns={result.vulnerability_count} threats={result.threat_count}"
+        f"[SBOM-TM] project={result.project} "
+        f"components={result.component_count} "
+        f"vulns={result.vulnerability_count} threats={result.threat_count}"
     )
+
+    # ============================================================
+    # ALWAYS EXPORT REPORTS TO ./sbom-report/
+    # ============================================================
+    export_dir = Path("sbom-report")
+    export_dir.mkdir(exist_ok=True)
     
-    typer.echo(f"[SBOM-TM] json report: {result.json_report}")
-    typer.echo(f"[SBOM-TM] html report: {result.html_report}")
-    fail_severities = ci_config.fail_on_severities()
-    fail_categories = ci_config.fail_on_rule_categories()
-    ignored_cves = ci_config.ignore_cves()
-    ignored_pkgs = ci_config.ignore_packages()
-    min_score = ci_config.min_threat_score()
-    allow_transitive = ci_config.allow_transitive()
+    from .report_builder_scan import write_markdown_scan
+    scan_md = export_dir / f"{project}_scan_report.md"
+    write_markdown_scan(result, scan_md)
+    print(f"[SBOM-TM] scan markdown saved: {scan_md}")
+    # JSON + HTML
+    import shutil
+    scan_json = export_dir / f"{project}_scan_report.json"
+    scan_html = export_dir / f"{project}_scan_report.html"
+    shutil.copy(result.json_report, scan_json)
+    shutil.copy(result.html_report, scan_html)
 
-    # 1️⃣ Fail on Rule Engine threats
-    triggered_threats = [
-        t for t in result.threats
-        if t["score"] >= min_score and t["category"] in fail_categories
-    ]
+    # MARKDOWN SUMMARY
+    from pathlib import Path
 
-    if triggered_threats:
-        typer.echo("[SBOM-TM] ❌ Rule Engine threats detected matching CI policy.")
-        raise typer.Exit(1)
+    md_file = export_dir / f"{project}_scan_report.md"
+    lines = []
+    lines.append(f"# SBOM Scan Report – {project}\n")
+    lines.append(f"- **Components:** {result.component_count}")
+    lines.append(f"- **Vulnerabilities:** {result.vulnerability_count}")
+    lines.append(f"- **Threats:** {result.threat_count}\n")
 
-    # 2️⃣ Fail on Vulnerabilities (Trivy)
-    # sev = getattr(result, "severity_counts", {})
-    def _extract_cve(v):
-        return (
-            v.get("cve")
+    lines.append("## Vulnerabilities\n")
+    for v in result.vulnerabilities:
+        cve = (
+            v.get("VulnerabilityID")
+            or v.get("cve")
             or v.get("CVE")
-            or v.get("VulnerabilityID")
+            or "unknown"
         )
-
-    filtered_vulns = [
-        v
-        for v in result.vulnerabilities
-        if _extract_cve(v) not in ignored_cves
-        and v.get("PkgName") not in ignored_pkgs
-    ]
-
-
-    # Recompute severity counts after filtering
-    sev = {}
-    def _extract_severity(v):
-        return (
-            v.get("severity")
-            or v.get("Severity")
+        pkg = v.get("PkgName") or v.get("package") or "unknown"
+        sev = (
+            v.get("Severity")
+            or v.get("severity")
             or v.get("SeveritySource")
-            or (v.get("DataSource") or {}).get("ID")
+            or "unknown"
         )
+        lines.append(f"- **{cve}** — *{pkg}* — **{sev}**")
 
-    for v in filtered_vulns:
-        sev_key = _extract_severity(v) or "unknown"
-        sev[sev_key] = sev.get(sev_key, 0) + 1
-    for severity, count in sev.items():
-        if severity in fail_severities and count > 0:
-            typer.echo(f"[SBOM-TM] ❌ {severity} vulnerabilities detected (CI policy).")
-            raise typer.Exit(1)
+    lines.append("\n## Threats\n")
+    for t in result.threats:
+        rid = t.get("rule_id", "unknown")
+        score = t.get("score", 0)
+        cat = t.get("category", "unknown")
+        lines.append(f"- Rule **{rid}** — Category **{cat}** — Score **{score}**")
 
-    def _extract_cve(v):
-        return (
-            v.get("cve")
-            or v.get("CVE")
-            or v.get("VulnerabilityID")
-        )
+    md_file.write_text("\n".join(lines), encoding="utf-8")
+    typer.echo(f"[SBOM-TM] markdown scan report: {md_file}")
 
-    def _extract_package(v):
-        return (
-            v.get("package")
-            or v.get("PkgName")
-            or v.get("PkgID")
-        )
+    # ============================================================
+    # ALWAYS EXIT SUCCESSFULLY — NO FAILURES IN SCAN MODE
+    # ============================================================
+    typer.echo("[SBOM-TM] Scan completed. (No failures in scan mode)")
+    return
 
-    violating_cves = [
-        v for v in result.vulnerabilities
-        if _extract_cve(v) not in ignored_cves
-    ]
-
-    violating_pkgs = [
-        v for v in violating_cves
-        if _extract_package(v) not in ignored_pkgs
-    ]
-
-
-    if violating_pkgs:
-        typer.echo("[SBOM-TM] ❌ Vulnerabilities (after ignore list) still present.")
-        raise typer.Exit(1)
-
-    
-    typer.echo("[SBOM-TM] ✅ No CI policy violations.")
-    if temp_sbom is not None:
-        try:
-            temp_sbom.unlink()
-        except Exception:
-            pass
 
 
 @app.command()

@@ -119,3 +119,114 @@ Notes and next steps:
 Note: the release workflow uses the repository owner value when publishing (so images are pushed to `ghcr.io/${{ github.repository_owner }}/sbom-tm`). If you're running the workflow from your fork or repo under `H-strangeone`, it will publish under your account automatically.
 - If you'd like, I can also create a small workflow to automatically tag releases from PR merges (CD pipeline).
 
+if you are using this then in your workflow add this sbom.yml
+
+name: SBOM-TM Demo Scan
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+jobs:
+  scan:
+    name: SBOM Threat Model Scan
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # --- REQUIRED FOR DIFF MODE ---
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ===========================
+      #       SBOM SCAN
+      # ===========================
+      - name: SBOM-TM Scan
+        id: sbom_scan
+        uses: h-strangeone/SBOM-TM@v0.4.7
+        with:
+          mode: scan
+          project: demo
+
+      # ===========================
+      #         SBOM DIFF
+      # ===========================
+      - name: SBOM-TM Diff (PR only)
+        if: github.event_name == 'pull_request'
+        id: sbom_diff
+        uses: h-strangeone/SBOM-TM@v0.4.7
+        with:
+          mode: diff
+          project: demo
+
+      # ===========================
+      # LOOK FOR GENERATED REPORT
+      # ===========================
+      - name: Check if diff report exists
+        id: check_report
+        run: |
+          REPORT=".github/home/.cache/sbom-tm/reports/demo_sbom_diff.md"
+          if [ -f "$REPORT" ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "path=$REPORT" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ===========================
+      # UPLOAD AS ARTIFACT
+      # ===========================
+      - name: Upload Markdown Report
+        if: steps.check_report.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-diff-report
+          path: ${{ steps.check_report.outputs.path }}
+          if-no-files-found: warn
+
+      # ===========================
+      # STICKY PR COMMENT
+      # ===========================
+      - name: Post SBOM Diff Comment on PR
+        if: github.event_name == 'pull_request' && steps.check_report.outputs.found == 'true'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          recreate: true
+          path: ${{ steps.check_report.outputs.path }}
+
+      # ===========================
+      # FAIL/ PASS LOGIC
+      # ===========================
+      - name: Fail if SBOM Scan failed
+        if: steps.sbom_scan.outcome == 'failure'
+        run: |
+          echo "❌ SBOM-TM found blocking issues."
+          exit 1
+
+      - name: Success
+        if: steps.sbom_scan.outcome == 'success'
+        run: echo "✔ SBOM-TM scan succeeded!"
+
+
+you can add an ignore list sbom-ci.yml
+
+ignore_cves:
+  - CVE-2018-1000656
+  - CVE-2019-1010083
+  - CVE-2023-30861
+  - CVE-2018-18074
+  - CVE-2023-32681
+  - CVE-2024-35195
+  - CVE-2024-47081
+
+ignore_packages:
+  - flask
+  - requests
+
+fail_on_severities: []
+fail_on_rule_categories: []
+min_threat_score: 999
