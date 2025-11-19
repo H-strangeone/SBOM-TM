@@ -61,7 +61,7 @@ jobs:
       - name: Run SBOM Scan
         id: sbomtm
         run: |
-          sbom-tm scan --sbom sbom.json --project "${{ github.event.repository.name }}" --offline
+          sbom-tm scan --sbom sbom.json --project "${{ github.event.repository.name }}" --offline --format html,json,md
         continue-on-error: true
 
       # -------------------------------
@@ -90,6 +90,7 @@ jobs:
       - name: Success message
         if: steps.sbomtm.outcome == 'success'
         run: echo "✔ No threats found. Safe to merge!"
+
 
 
 
