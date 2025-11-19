@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+ #!/usr/bin/env bash
 set -euo pipefail
 
 # If running inside GitHub Actions, GitHub sets these INPUT_* env vars.
@@ -6,6 +6,11 @@ IN_ACTION="${GITHUB_ACTIONS:-false}"
 
 if [[ "$IN_ACTION" == "true" && -n "${INPUT_MODE:-}" ]]; then
   # ---------- GITHUB ACTION MODE ----------
+
+  # FIX 1 — avoid GitHub runner "dubious ownership" errors
+  git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
+  git config --global --add safe.directory /github/workspace || true
+
   MODE="${INPUT_MODE:-auto}"                 # auto | scan | diff
   BASE="${INPUT_BASE:-}"                     # base ref for diff (optional)
   PROJECT="${INPUT_PROJECT:-default}"        # used in report filenames
@@ -19,6 +24,7 @@ if [[ "$IN_ACTION" == "true" && -n "${INPUT_MODE:-}" ]]; then
 
   echo "[sbom-tm-action] mode=$MODE event=$EVENT_NAME base=$BASE project=$PROJECT"
 
+  # Build offline flag
   OFFLINE_FLAG=()
   if [ "$OFFLINE" = "true" ]; then
     OFFLINE_FLAG+=(--offline)
@@ -68,6 +74,7 @@ from sbom_tm.config import get_settings
 print(str(get_settings().cache_dir / 'reports'))
 PY
   )
+
   if [ -n "$PY_REPORT_DIR" ]; then
     if [ -f "$PY_REPORT_DIR/${PROJECT}_sbom_diff.md" ]; then
       REPORT_SRC="$PY_REPORT_DIR/${PROJECT}_sbom_diff.md"
@@ -95,10 +102,9 @@ PY
   fi
 
   exit "$EXIT_CODE"
+
 else
   # ---------- LOCAL / CLI MODE ----------
-  # Here we pass everything straight through to sbom-tm:
-  # e.g. docker run sbom-test sbom-tm --help
   echo "[entrypoint] local mode: sbom-tm $*"
   exec sbom-tm "$@"
 fi
