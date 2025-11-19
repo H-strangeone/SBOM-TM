@@ -39,10 +39,3 @@ outputs:
 runs:
   using: "docker"
   image: "ghcr.io/h-strangeone/sbom-tm:latest"
-
-  args:
-    - ${{ inputs.mode }}
-    - ${{ inputs.base }}
-    - ${{ inputs.project }}
-    - ${{ inputs.offline }}
-    - ${{ inputs['report-path'] }}
