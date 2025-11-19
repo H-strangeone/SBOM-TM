@@ -3,10 +3,8 @@ set -euo pipefail
 
 IN_ACTION="${GITHUB_ACTIONS:-false}"
 
-# If running inside GitHub Actions
 if [[ "$IN_ACTION" == "true" && -n "${INPUT_MODE:-}" ]]; then
 
-  # Avoid GitHub “dubious ownership” errors
   git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
   git config --global --add safe.directory /github/workspace || true
 
@@ -45,8 +43,8 @@ if [[ "$IN_ACTION" == "true" && -n "${INPUT_MODE:-}" ]]; then
   }
 
   case "$MODE" in
-    scan)  run_scan ;;
-    diff)  run_diff ;;
+    scan) run_scan ;;
+    diff) run_diff ;;
     auto)
       if [ "$EVENT_NAME" = "pull_request" ]; then
         run_diff
@@ -55,13 +53,13 @@ if [[ "$IN_ACTION" == "true" && -n "${INPUT_MODE:-}" ]]; then
       fi
       ;;
     *)
-      echo "::error::Unknown mode '$MODE' (expected auto|scan|diff)"
+      echo "::error::Unknown mode '$MODE'"
       exit 1
       ;;
   esac
 
-  # Locate report
   REPORT_SRC=""
+
   PY_REPORT_DIR=$(python - <<'PY'
 from sbom_tm.config import get_settings
 print(str(get_settings().cache_dir / 'reports'))
@@ -69,11 +67,7 @@ PY
   )
 
   if [ -n "$PY_REPORT_DIR" ]; then
-    if [ -f "$PY_REPORT_DIR/${PROJECT}_sbom_diff.md" ]; then
-      REPORT_SRC="$PY_REPORT_DIR/${PROJECT}_sbom_diff.md"
-    else
-      REPORT_SRC=$(find "$PY_REPORT_DIR" -maxdepth 1 -name '*_sbom_diff.md' | head -n1 || true)
-    fi
+    REPORT_SRC=$(find "$PY_REPORT_DIR" -maxdepth 1 -name '*_sbom_diff.md' | head -n1 || true)
   fi
 
   if [ -z "$REPORT_SRC" ]; then
