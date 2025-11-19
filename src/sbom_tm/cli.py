@@ -540,9 +540,17 @@ def scan(
 
     # Recompute severity counts after filtering
     sev = {}
-    for v in filtered_vulns:
-        sev[v["severity"]] = sev.get(v["severity"], 0) + 1
+    def _extract_severity(v):
+        return (
+            v.get("severity")
+            or v.get("Severity")
+            or v.get("SeveritySource")
+            or (v.get("DataSource") or {}).get("ID")
+        )
 
+    for v in filtered_vulns:
+        sev_key = _extract_severity(v) or "unknown"
+        sev[sev_key] = sev.get(sev_key, 0) + 1
     for severity, count in sev.items():
         if severity in fail_severities and count > 0:
             typer.echo(f"[SBOM-TM] ❌ {severity} vulnerabilities detected (CI policy).")
