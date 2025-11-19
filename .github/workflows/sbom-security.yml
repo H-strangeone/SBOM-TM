@@ -53,13 +53,7 @@ jobs:
       # INSTALL TRIVY
       # -------------------------------
       - name: Install Trivy
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y wget apt-transport-https gnupg
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-          echo deb https://aquasecurity.github.io/trivy-repo/deb stable main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update -y
-          sudo apt-get install -y trivy  
+        uses: aquasecurity/setup-trivy@v0.2.4
 
       # -------------------------------
       # RUN SBOM-TM SCAN (Trivy + Rules)
@@ -96,5 +90,6 @@ jobs:
       - name: Success message
         if: steps.sbomtm.outcome == 'success'
         run: echo "✔ No threats found. Safe to merge!"
+
 
 
