@@ -38,6 +38,8 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          no-cache: true
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/sbom-tm:latest
             ghcr.io/${{ env.OWNER_LC }}/sbom-tm:${{ github.ref_name }}
+
