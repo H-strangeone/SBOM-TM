@@ -71,10 +71,11 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release/${{ github.ref_name }}   # <- FIXED
+          base: main
           commit-message: "chore: update action to ${{ github.ref_name }}"
           title: "Release: update action to ${{ github.ref_name }}"
           body: "Automated update for new GHCR release."
-          base: main
-          head: release/${{ github.ref_name }}
+
 
 
