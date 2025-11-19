@@ -1,53 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Simple wrapper to run the installed `sbom-tm` CLI inside an action
-# Usage: ./entrypoint.sh <command> "<args>" <project>
-
-COMMAND="${1:-}"
-ARGS="${2:-}"
-PROJECT="${3:-}"
-
-# If the caller passed the full CLI name (e.g. `sbom-tm diff --git`) as args
-# (this happens when users run `docker run ... sbom-tm diff --git`), accept
-# that form by shifting off the leading `sbom-tm` token so the wrapper works
-# with either `diff --git` or `sbom-tm diff --git`.
-if [ "${COMMAND}" = "sbom-tm" ]; then
-  # shift positional parameters left by one
-  shift 1
-  COMMAND="${1:-}"
-  ARGS="${2:-}"
-  PROJECT="${3:-}"
-fi
-
-echo "[entrypoint] running sbom-tm ${COMMAND} ${ARGS} (project=${PROJECT})"
-
-# ensure package is installed (in case action didn't install earlier)
-python -m pip install --upgrade pip >/dev/null
-pip install . >/dev/null
-
-if [ "${COMMAND}" = "diff" ]; then
-  # run diff (use --git by default when in CI)
-  if [ -z "${ARGS// }" ]; then
-    sbom-tm diff --git --project "${PROJECT}"
-  else
-    sbom-tm diff ${ARGS} --project "${PROJECT}"
-  fi
-else
-  # generic passthrough (scan/generate/etc)
-  if [ -z "${ARGS// }" ]; then
-    sbom-tm ${COMMAND} --project "${PROJECT}"
-  else
-    sbom-tm ${COMMAND} ${ARGS} --project "${PROJECT}"
-  fi
-fi
-
-exit_code=$?
-echo "[entrypoint] sbom-tm exited with ${exit_code}"
-exit ${exit_code}
-#!/usr/bin/env bash
-set -euo pipefail
-
 # Inputs from action.yml (GitHub maps inputs → env: INPUT_<UPPERCASE_NAME>)
 MODE="${INPUT_MODE:-auto}"                 # auto | scan | diff
 BASE="${INPUT_BASE:-}"                     # base ref for diff (optional)

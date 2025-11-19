@@ -1,0 +1,60 @@
+name: SBOM Diff for Pull Requests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  diff:
+    name: SBOM Change Diff
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install SBOM-TM
+        run: |
+          pip install -r requirements.txt
+          pip install .
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0.16.0
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.4
+
+      - name: Run SBOM Diff (HEAD vs merge-base)
+        id: rundiff
+        run: |
+          sbom-tm diff --git --project "${{ github.event.pull_request.number }}"
+        continue-on-error: true
+
+      - name: Find Markdown Diff Report
+        id: find_report
+        run: |
+          REPORT="$(ls ~/.cache/sbom-tm/reports/*_sbom_diff.md 2>/dev/null | head -n1 || true)"
+          echo "report_path=$REPORT" >> $GITHUB_OUTPUT
+
+      - name: Upload Markdown Diff
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-diff
+          path: ${{ steps.find_report.outputs.report_path }}
+          if-no-files-found: warn
+
+      - name: Sticky PR Comment (Markdown)
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: ${{ steps.find_report.outputs.report_path != '' }}
+        with:
+          path: ${{ steps.find_report.outputs.report_path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Finish
+        run: echo "✔ SBOM diff completed."

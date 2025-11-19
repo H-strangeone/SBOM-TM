@@ -31,8 +31,7 @@ jobs:
         uses: anchore/sbom-action/download-syft@v0.16.0
 
       - name: Generate SBOM using Syft
-        run: |
-          syft . -o cyclonedx-json > sbom.json
+        run: syft . -o cyclonedx-json > sbom.json
 
       - name: Install Trivy
         uses: aquasecurity/setup-trivy@v0.2.4
@@ -40,15 +39,11 @@ jobs:
       - name: Run SBOM Scan
         id: sbomtm
         run: |
-          mkdir -p ~/.cache/sbom-tm/reports
-
           sbom-tm scan \
             --sbom sbom.json \
             --project "${{ github.event.repository.name }}" \
-            --format html,json,md \
-            --output ~/.cache/sbom-tm/reports
+            --format html,json,md
         continue-on-error: true
-
 
       - name: Debug logs
         if: always()
