@@ -556,17 +556,30 @@ def scan(
             typer.echo(f"[SBOM-TM] ❌ {severity} vulnerabilities detected (CI policy).")
             raise typer.Exit(1)
 
-    # 3️⃣ Check ignored CVEs
+    def _extract_cve(v):
+        return (
+            v.get("cve")
+            or v.get("CVE")
+            or v.get("VulnerabilityID")
+        )
+
+    def _extract_package(v):
+        return (
+            v.get("package")
+            or v.get("PkgName")
+            or v.get("PkgID")
+        )
+
     violating_cves = [
         v for v in result.vulnerabilities
-        if v["cve"] not in ignored_cves
+        if _extract_cve(v) not in ignored_cves
     ]
 
-    # 4️⃣ Check ignored packages
     violating_pkgs = [
         v for v in violating_cves
-        if v["package"] not in ignored_pkgs
+        if _extract_package(v) not in ignored_pkgs
     ]
+
 
     if violating_pkgs:
         typer.echo("[SBOM-TM] ❌ Vulnerabilities (after ignore list) still present.")
