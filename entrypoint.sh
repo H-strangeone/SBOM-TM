@@ -4,9 +4,13 @@ set -euo pipefail
 IN_ACTION="${GITHUB_ACTIONS:-false}"
 
 if [[ "$IN_ACTION" == "true" && -n "${INPUT_MODE:-}" ]]; then
-
+    # Fix Git not trusting workspace
   git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
   git config --global --add safe.directory /github/workspace || true
+  git config --global --add safe.directory /github/workspace/. || true
+  git config --global --add safe.directory /github/workspace/./.git || true
+  git config --global --add safe.directory "$(pwd)" || true
+  git config --global --add safe.directory "$(realpath "$GITHUB_WORKSPACE")" || true
 
   MODE="${INPUT_MODE:-auto}"
   BASE="${INPUT_BASE:-}"
