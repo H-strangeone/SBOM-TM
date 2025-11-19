@@ -53,16 +53,18 @@ jobs:
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
-      
+
           git switch -C release/${{ github.ref_name }}
-      
+
           yq -i ".runs.image = env(NEW_IMAGE)" action.yml
-      
+
           git add action.yml
           git commit -m "chore: update action to $NEW_IMAGE" || echo "No changes"
-      
-          # THE FIX → set upstream on first push
-          git push --set-upstream origin release/${{ github.ref_name }}
+
+          # FIX: sync remote branch, then force push
+          git pull origin release/${{ github.ref_name }} --rebase || true
+          git push --force --set-upstream origin release/${{ github.ref_name }}
+
 
 
       - name: Create Pull Request
@@ -74,4 +76,5 @@ jobs:
           body: "Automated update for new GHCR release."
           base: main
           head: release/${{ github.ref_name }}
+
 
