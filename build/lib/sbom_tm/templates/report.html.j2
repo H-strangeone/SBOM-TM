@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>SBOM-TM Threat Report - {{ project }}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      background: #f8f9fa;
+      color: #212529;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 1.5rem;
+    }
+
+    th,
+    td {
+      border: 1px solid #dee2e6;
+      padding: 0.6rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #343a40;
+      color: #f8f9fa;
+    }
+
+    tr:nth-child(even) {
+      background: #ffffff;
+    }
+
+    .score {
+      font-weight: bold;
+    }
+
+    .chip {
+      display: inline-block;
+      margin: 0.1rem 0.2rem;
+      padding: 0.1rem 0.5rem;
+      border-radius: 0.75rem;
+      background: #e9ecef;
+    }
+
+    .severity-HIGH {
+      background: #f03e3e;
+      color: #fff;
+    }
+
+    .severity-CRITICAL {
+      background: #c92a2a;
+      color: #fff;
+    }
+
+    .severity-MEDIUM {
+      background: #f08c00;
+      color: #fff;
+    }
+
+    .severity-LOW {
+      background: #1971c2;
+      color: #fff;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Threat Report &mdash; {{ project }}</h1>
+  <p>Generated at {{ generated.strftime('%Y-%m-%d %H:%M:%S') }} UTC</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Score</th>
+        <th>Target</th>
+        <th>Vulnerability</th>
+        <th>Patterns</th>
+        <th>Objectives</th>
+        <th>Recommendations</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for threat in threats %}
+      <tr>
+        <td>{{ threat.threat_id }}</td>
+        <td class="score">{{ '%.2f' | format(threat.score) }}</td>
+        <td>
+          <strong>Service:</strong> {{ threat.target.service }}<br />
+          <strong>Component:</strong> {{ threat.target.component.name }} {{ threat.target.component.version or '' }}
+        </td>
+        <td>
+          <span class="chip severity-{{ threat.evidence.severity }}">{{ threat.evidence.severity or 'N/A'
+            }}</span><br />
+          CVE: {{ threat.evidence.cve or 'unknown' }}<br />
+          CVSS: {{ threat.evidence.cvss or 'n/a' }}<br />
+          Exploit: {{ threat.evidence.exploit_maturity or 'unknown' }}
+        </td>
+        <td>
+          {% for pattern in threat.pattern %}
+          <span class="chip">{{ pattern }}</span>
+          {% endfor %}
+        </td>
+        <td>
+          {% for objective in threat.objective %}
+          <span class="chip">{{ objective }}</span>
+          {% endfor %}
+        </td>
+        <td>
+          <ul>
+            {% for recommendation in threat.recommended_actions %}
+            <li>{{ recommendation }}</li>
+            {% endfor %}
+          </ul>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+
+</html>

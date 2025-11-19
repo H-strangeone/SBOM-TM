@@ -4,12 +4,12 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-
 from dotenv import load_dotenv
 
 load_dotenv()
 
-BASE_DIR = Path(__file__).resolve().parents[2]
+# Correct base directory: folder containing sbom_tm package
+BASE_DIR = Path(__file__).resolve().parent
 
 
 def _bool_env(name: str, default: bool = False) -> bool:
@@ -32,17 +32,21 @@ class Settings:
 
 @lru_cache
 def get_settings() -> Settings:
+    # All inside the package directory by default
     db_path = Path(os.getenv("DB_PATH", BASE_DIR / "db" / "sbom_tm.sqlite"))
     rules_dir = Path(os.getenv("RULES_DIR", BASE_DIR / "rules"))
-    report_dir = Path(os.getenv("REPORT_DIR", BASE_DIR / "data" / "reports"))
-    cache_dir = Path(os.getenv("TRIVY_CACHE_DIR", BASE_DIR / "data" / "cache"))
     templates_dir = Path(os.getenv("TEMPLATE_DIR", BASE_DIR / "templates"))
 
+    # User-level writable dirs for reports and cache
+    report_dir = Path(os.getenv("REPORT_DIR", Path.home() / ".cache" / "sbom-tm" / "reports"))
+    cache_dir = Path(os.getenv("TRIVY_CACHE_DIR", Path.home() / ".cache" / "sbom-tm" / "trivy"))
+
+    # Ensure directories exist
     db_path.parent.mkdir(parents=True, exist_ok=True)
     rules_dir.mkdir(parents=True, exist_ok=True)
+    templates_dir.mkdir(parents=True, exist_ok=True)
     report_dir.mkdir(parents=True, exist_ok=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    templates_dir.mkdir(parents=True, exist_ok=True)
 
     return Settings(
         db_path=db_path,
