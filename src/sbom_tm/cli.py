@@ -311,7 +311,6 @@ def diff(
         if triggered:
             typer.echo("[sbom-tm] ❌ RuleEngine detected blocking threats.")
             print("[SBOM-TM] WARNING: Policy violation — continuing.")
-            return result
 
         # =======================
         # Markdown report
@@ -319,8 +318,10 @@ def diff(
         report_dir = settings.cache_dir / "reports"
         report_dir.mkdir(parents=True, exist_ok=True)
 
-        export_dir = Path("sbom-report")
-        export_dir.mkdir(exist_ok=True)
+        export_dir = Path("/github/workspace/sbom-report")
+
+        export_dir.mkdir(parents=True, exist_ok=True)
+
 
         md_report = export_dir / f"{project}_sbom_diff.md"
 
@@ -505,11 +506,10 @@ def scan(
         f"vulns={result.vulnerability_count} threats={result.threat_count}"
     )
 
-    # ============================================================
-    # ALWAYS EXPORT REPORTS TO ./sbom-report/
-    # ============================================================
-    export_dir = Path("sbom-report")
-    export_dir.mkdir(exist_ok=True)
+    
+    export_dir = Path("/github/workspace/sbom-report")
+    export_dir.mkdir(parents=True, exist_ok=True)
+
 
     from .report_builder_scan import write_markdown_scan
     scan_md = export_dir / f"{project}_scan_report.md"
@@ -539,8 +539,9 @@ def scan(
             if k in v:
                 return v[k]
         return None
+    vuls = result.vulnerabilities or getattr(result, "raw_vulnerabilities", []) or []
 
-    for v in result.vulnerabilities:
+    for v in vuls:
         # CVE extraction
         cve = get_field(
             v,
