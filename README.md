@@ -98,7 +98,7 @@ diff_report.md (for PRs)
 raises security issue if vulnerabilities found in the issues section
 
 
-
+---------------------------------------------------------------------
 
 
 if you are using this then in your workflow add these two file  
@@ -312,5 +312,6 @@ ignore_packages:
 fail_on_severities: []
 fail_on_rule_categories: []
 min_threat_score: 999
+
 
 
