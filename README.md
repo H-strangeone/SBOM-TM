@@ -238,7 +238,7 @@ jobs:
 
       - name: Run SBOM Scan
         id: scan
-        uses: h-strangeone/SBOM-TM@v0.4.73
+        uses: h-strangeone/SBOM-TM@v0.4.74
         with:
           mode: scan
           project: demo
@@ -312,4 +312,5 @@ ignore_packages:
 fail_on_severities: []
 fail_on_rule_categories: []
 min_threat_score: 999
+
 
