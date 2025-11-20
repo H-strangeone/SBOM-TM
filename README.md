@@ -1,5 +1,5 @@
 SBOM-TM — Automated SBOM Security Scanner & Threat Modeler
-
+(how to use this is way way down so you can skip to that but if you want to know whats happening please continue)
 
 ********************************************************
 
@@ -312,6 +312,7 @@ ignore_packages:
 fail_on_severities: []
 fail_on_rule_categories: []
 min_threat_score: 999
+
 
 
 
