@@ -524,59 +524,28 @@ def scan(
 
     # MARKDOWN SUMMARY
 
-    md_file = export_dir / f"{project}_scan_report.md"
-    lines = []
-    lines.append(f"# SBOM Scan Report – {project}\n")
-    lines.append(f"- **Components:** {result.component_count}")
-    lines.append(f"- **Vulnerabilities:** {result.vulnerability_count}")
-    lines.append(f"- **Threats:** {result.threat_count}\n")
+    export_dir = Path("/github/workspace/sbom-report")
+    export_dir.mkdir(parents=True, exist_ok=True)
 
-    lines.append("## Vulnerabilities\n")
+    # --- Build Markdown using the canonical formatter ---
+    from .report_builder_scan import write_markdown_scan
+    scan_md = export_dir / f"{project}_scan_report.md"
+    write_markdown_scan(result, scan_md)
+    typer.echo(f"[SBOM-TM] markdown scan report: {scan_md}")
 
-    def get_field(v, *keys):
-        """Try multiple possible Trivy/SBOM schema keys."""
-        for k in keys:
-            if k in v:
-                return v[k]
-        return None
-    vuls = result.vulnerabilities or getattr(result, "raw_vulnerabilities", []) or []
+    # --- Copy JSON + HTML Trivy reports ---
+    import shutil
+    scan_json = export_dir / f"{project}_scan_report.json"
+    scan_html = export_dir / f"{project}_scan_report.html"
+    shutil.copy(result.json_report, scan_json)
+    shutil.copy(result.html_report, scan_html)
 
-    for v in vuls:
-        # CVE extraction
-        cve = get_field(
-            v,
-            "VulnerabilityID", "vulnerability_id",
-            "CVE", "cve"
-        ) or "unknown"
+    # ============================================================
+    # ALWAYS EXIT SUCCESSFULLY — NO FAILURES IN SCAN MODE
+    # ============================================================
+    typer.echo("[SBOM-TM] Scan completed. (No failures in scan mode)")
+    return
 
-        # Package extraction (SBOM uses nested structure)
-        pkg = get_field(
-            v,
-            "PkgName", "PkgID", "package"
-        )
-        if isinstance(pkg, dict):  # SBOM format → { "name": "libcurl" }
-            pkg = pkg.get("name") or pkg.get("id") or "unknown"
-
-        pkg = pkg or "unknown"
-
-        # Severity extraction
-        sev = get_field(
-            v,
-            "Severity", "severity", "SeveritySource"
-        ) or "unknown"
-
-        lines.append(f"- **{cve}** — *{pkg}* — **{sev}**")
-
-
-    lines.append("\n## Threats\n")
-    for t in result.threats:
-        rid = t.get("rule_id", "unknown")
-        score = t.get("score", 0)
-        cat = t.get("category", "unknown")
-        lines.append(f"- Rule **{rid}** — Category **{cat}** — Score **{score}**")
-
-    md_file.write_text("\n".join(lines), encoding="utf-8")
-    typer.echo(f"[SBOM-TM] markdown scan report: {md_file}")
 
     # ============================================================
     # ALWAYS EXIT SUCCESSFULLY — NO FAILURES IN SCAN MODE
