@@ -1,111 +1,78 @@
-SBOM-TM — Automated SBOM Security Scanner & Threat Modeler
-(how to use this is way way down so you can skip to that but if you want to know whats happening please continue)
 
-********************************************************
+# SBOM-TM  
+### Automated SBOM Security Scanner & Threat Modeler
+### (how to use this is way down so you can skip to that but if you want to know whats happening please continue)
 
-SBOM-TM is a GitHub Action–powered security tool that scans your project for:
+SBOM-TM is a **GitHub Action–based security tool** that automatically scans your repository for **software supply-chain risks** using a Software Bill of Materials (SBOM).
+
+It provides **Dependabot-style security visibility**, but for *everything* in your project — not just dependency updates.
 
 
-software components
+Features
 
-vulnerabilities (via Trivy)
+SBOM-TM scans your project for:
 
-dependency changes
-
-upgrade/downgrade risks
-
-threat-rule violations
-
-*******************************************************
-
+- Software components  
+- Known vulnerabilities (via **Trivy**)  
+- Dependency additions, removals, and version changes  
+- Upgrade / downgrade risks  
+- Threat-rule violations  
 
 It automatically generates:
 
+- SBOM scan reports (Markdown / JSON / HTML)  
+- SBOM diff reports for Pull Requests  
+- Sticky PR comments highlighting new risks  
+- GitHub Issues when vulnerabilities exist on `main`  
+- GitHub Artifacts containing all reports  
 
-SBOM scan reports (JSON / HTML / Markdown)
+---
 
-Diff reports for pull requests
+##  How It Works
 
-PR comments showing threats if any
+1. Generates a **CycloneDX SBOM** using **Syft**
+2. Scans the SBOM using **Trivy**
+3. Applies threat-modeling rules
+4. Posts results on Pull Requests
+5. Fails the workflow if blocking issues are found
+6. Raises or updates GitHub Issues for persistent risks
 
-Automatic Security Issues when new risks are detected
+---
 
-*********************************************************
+##  Outputs
 
-What SBOM-TM Does
+Each run produces:
 
+- `scan_report.md`
+- `scan_report.json`
+- `scan_report.html`
+- `diff_report.md` (Pull Requests only)
 
-Builds a CycloneDX SBOM using Syft
+Reports are uploaded as **GitHub Artifacts**.
 
-Scans it using Trivy for vulnerabilities
+---
 
-Applies threat rules to determine high-risk components
+## Why Use It
 
-Posts a report on your PR
+well you get:
 
-Raises a GitHub Issue if your main branch contains vulnerabilities
+- better visibility
+- automated security workflows
+- consistent scan results
+- no manual review needed
+  
+- and also just because 
 
-Uploads scan results as GitHub Artifacts
+##  Installation & Usage
 
+### 1️. Add the Workflow
 
-*********************************************************
-
-Why Use It
-
-
-SBOM-TM gives you automated “Dependabot-style” security alerts but for everything in your project, not just package updates.
-
-This means you get:
-
-better visibility
-
-automated security workflows
-
-consistent scan results
-
-no manual review needed
-
-and also just because 
-
-*********************************************
-
-How to use?
-
-
-its given below but remember
-
-Add this to .github/workflows/sbom.yml:
-
-uses: h-strangeone/SBOM-TM@v(whatever version is the latest one so if z.x.y is latest put z.x.y after this v no spaces)
+Create the following files in your repository:
 
 
-***********************************************
+1.`.github/workflows/sbom.yml`
 
-
-Outputs
-
-
-After each scan you get:
-
-scan_report.md
-
-scan_report.json
-
-scan_report.html
-
-diff_report.md (for PRs)
-
-raises security issue if vulnerabilities found in the issues section
-
-
----------------------------------------------------------------------
-
-
-if you are using this then in your workflow add these two file  
-
-1. put it in the root and create .github/workflows/sbom.yml
-
-***********************************************************
+```yaml
 name: SBOM-TM Security Scan
 
 on:
@@ -205,11 +172,14 @@ jobs:
       - name: Success
         if: steps.sbom_scan.outcome == 'success'
         run: echo "✔ SBOM-TM scan succeeded!"
+```
 
 
-2. add sbom-issue.yml in the same workflow folder
 
 
+2.`.github/workflows/sbom-issue.yml`
+
+```yaml
 name: SBOM-TM Auto Issue
 
 on:
@@ -273,28 +243,8 @@ jobs:
               });
             }
 
+---
 
-
-************************************************
-
-you can add an ignore list sbom-ci.yml if you want based on your requirements
-
-ignore_cves:
-  - CVE-2018-1000656
-  - CVE-2019-1010083
-  - CVE-2023-30861
-  - CVE-2018-18074
-  - CVE-2023-32681
-  - CVE-2024-35195
-  - CVE-2024-47081
-
-ignore_packages:
-  - flask
-  - requests
-
-fail_on_severities: []
-fail_on_rule_categories: []
-min_threat_score: 999
 
 
 
