@@ -16,10 +16,12 @@ ruff_cache/
 data/
 db/
 .ruff_cache
-
+.gitignore
 # for sample
 !data
+build-log.txt
 data/*
 !data/sboms/
 !data/sboms/*
 red.txt
+sbom-report
