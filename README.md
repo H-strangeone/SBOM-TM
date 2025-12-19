@@ -118,14 +118,12 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     name: SBOM Threat Model Scan
-
     steps:
       # Checkout with full history for diff
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       # ===========================
       #          SCAN
       # ===========================
@@ -135,7 +133,6 @@ jobs:
         with:
           mode: scan
           project: demo
-
       # Save scan report directory
       - name: Upload Scan Report
         uses: actions/upload-artifact@v4
@@ -143,7 +140,6 @@ jobs:
           name: sbom-scan-report
           path: sbom-report/
           if-no-files-found: warn
-
       # ===========================
       #          DIFF (PR ONLY)
       # ===========================
@@ -154,7 +150,6 @@ jobs:
         with:
           mode: diff
           project: demo
-
       - name: Upload Diff Report
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
@@ -162,7 +157,6 @@ jobs:
           name: sbom-diff-report
           path: sbom-report/
           if-no-files-found: warn
-
       # ===========================
       #      STICKY PR COMMENT
       # ===========================
@@ -182,7 +176,6 @@ jobs:
             echo "found=false" >> "$GITHUB_OUTPUT"
             echo "No diff markdown found."
           fi
-          
       - name: Post Sticky PR Comment
         if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@v2
@@ -201,8 +194,6 @@ jobs:
             - SBOM generation failed  
             - Diff exited early  
             {% endif %}
-
-
       # ===========================
       #      PASS / FAIL STATUS
       # ===========================
@@ -211,7 +202,6 @@ jobs:
         run: |
           echo "❌ SBOM-TM found blocking issues."
           exit 1
-
       - name: Success
         if: steps.sbom_scan.outcome == 'success'
         run: echo "✔ SBOM-TM scan succeeded!"
@@ -219,7 +209,7 @@ jobs:
 
 2. add sbom-issue.yml in the same workflow folder
 
-*************************************************************
+
 name: SBOM-TM Auto Issue
 
 on:
@@ -235,14 +225,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Run SBOM Scan
         id: scan
         uses: h-strangeone/SBOM-TM@v0.4.74
         with:
           mode: scan
           project: demo
-
       - name: Find Scan Markdown
         id: find_md
         run: |
@@ -253,7 +241,6 @@ jobs:
           else
             echo "found=false" >> $GITHUB_OUTPUT
           fi
-
       - name: Create or Update Security Issue
         if: steps.find_md.outputs.found == 'true'
         uses: actions/github-script@v7
@@ -262,17 +249,13 @@ jobs:
             const fs = require("fs");
             const path = "${{ steps.find_md.outputs.path }}";
             const body = fs.readFileSync(path, "utf8");
-
             const title = " SBOM-TM Security Alert";
-
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               labels: "security"
             });
-
             const existing = issues.find(i => i.title === title);
-
             if (existing) {
               await github.rest.issues.update({
                 owner: context.repo.owner,
@@ -312,6 +295,7 @@ ignore_packages:
 fail_on_severities: []
 fail_on_rule_categories: []
 min_threat_score: 999
+
 
 
 
